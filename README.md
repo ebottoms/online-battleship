@@ -1,4 +1,4 @@
-# Tic-Tac-Toe Game Example
+# BATTLESHIP
 
 This is a simple online client-server implementation of the classic two-player <em>Battleship</em> game using Python and sockets.
 
