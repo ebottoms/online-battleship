@@ -1,6 +1,6 @@
 # Tic-Tac-Toe Game Example
 
-This is a simple Battleship game implemented using Python and sockets.
+This is a simple online client-server implementation of the classic two-player <em>Battleship</em> game using Python and sockets.
 
 **How to play:**
 1. **Start the server:** Run the `server.py` script.
