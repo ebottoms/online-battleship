@@ -12,6 +12,6 @@ This is a simple Battleship game implemented using Python and sockets.
 * Sockets
 
 **Additional resources:**
-* [Link to Python documentation]
-* [Link to sockets tutorial]
+* [Link to Python documentation](https://docs.python.org/3/)
+* [Link to sockets tutorial](https://nbviewer.org/url/www.cs.colostate.edu/~cs457/lab/CS457_Lab01_TCPSocketIntro.ipynb)
     
