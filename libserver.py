@@ -59,6 +59,10 @@ class Server:
             print("caught keyboard interrupt, exiting")
         finally:
             self.sel.close()
+    
+    # TODO Remove all json response decisions from the Message class and move them to the Server class
+    def get_action(self):
+        pass
 
 class Message:
     def __init__(self, selector, sock, addr, server_handle):
