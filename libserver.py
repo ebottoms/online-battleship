@@ -140,10 +140,12 @@ class Message:
 
     def _create_response_json_content(self):
         action = self.request.get("action")
+        
         if action == "search":
             query = self.request.get("value")
             answer = request_search.get(query) or f'No match for "{query}".'
             content = {"result": answer}
+            
         elif action == "recognize":
             username = self.request.get("value")
             if username in self.server_handle.clients:
@@ -151,6 +153,7 @@ class Message:
             else:
                 answer = "\n\nWe do not recognize the username \"" + username + "\". Please use argument <register> <username> to register.\n\n"
             content = {"result": answer}
+            
         elif action == "register":
             username = self.request.get("value")
             if username in self.server_handle.clients:
@@ -159,14 +162,17 @@ class Message:
                 answer = "\n\nWe recieved your request to register your username \"" + username + "\". Use argument <recognize> <username> to verify successful registration.\n\n"
                 self.server_handle.clients[username] = datetime.date.today().strftime("%B %d, %Y")
             content = {"result": answer}
+            
         else:
             content = {"result": f'Error: invalid action "{action}".'}
+            
         content_encoding = "utf-8"
         response = {
             "content_bytes": self._json_encode(content, content_encoding),
             "content_type": "text/json",
             "content_encoding": content_encoding,
         }
+        
         return response
 
     def _create_response_binary_content(self):
