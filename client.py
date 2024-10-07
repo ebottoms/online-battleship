@@ -10,9 +10,10 @@ import libclient
 
 sel = selectors.DefaultSelector()
 
+text_json_commands = ["search", "register", "recognize"]
 
 def create_request(action, value):
-    if action == "search":
+    if (action in text_json_commands):
         return dict(
             type="text/json",
             encoding="utf-8",

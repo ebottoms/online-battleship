@@ -4,6 +4,10 @@ import selectors
 import json
 import io
 import struct
+import socket
+import traceback
+
+import datetime
 
 request_search = {
     "morpheus": "Follow the white rabbit. \U0001f430",
@@ -11,9 +15,53 @@ request_search = {
     "\U0001f436": "\U0001f43e Playing ball! \U0001f3d0",
 }
 
+class Server:
+    def __init__(self, host, port):
+        self.sel = selectors.DefaultSelector()
+        self.host = host
+        self.port = port
+        self.clients = {}
+    
+    def accept_wrapper(self, sock):
+        conn, addr = sock.accept()  # Should be ready to read
+        print("accepted connection from", addr)
+        conn.setblocking(False)
+        message = Message(self.sel, conn, addr, self)
+        self.sel.register(conn, selectors.EVENT_READ, data=message)
+        
+    def run(self):
+        lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Avoid bind() exception: OSError: [Errno 48] Address already in use
+        lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        lsock.bind((self.host, self.port))
+        lsock.listen()
+        print("listening on", (self.host, self.port))
+        lsock.setblocking(False)
+        self.sel.register(lsock, selectors.EVENT_READ, data=None)
+
+        try:
+            while True:
+                events = self.sel.select(timeout=None)
+                for key, mask in events:
+                    if key.data is None:
+                        self.accept_wrapper(key.fileobj)
+                    else:
+                        message = key.data
+                        try:
+                            message.process_events(mask)
+                        except Exception:
+                            print(
+                                "main: error: exception for",
+                                f"{message.addr}:\n{traceback.format_exc()}",
+                            )
+                            message.close()
+        except KeyboardInterrupt:
+            print("caught keyboard interrupt, exiting")
+        finally:
+            self.sel.close()
 
 class Message:
-    def __init__(self, selector, sock, addr):
+    def __init__(self, selector, sock, addr, server_handle):
         self.selector = selector
         self.sock = sock
         self.addr = addr
@@ -23,6 +71,7 @@ class Message:
         self.jsonheader = None
         self.request = None
         self.response_created = False
+        self.server_handle = server_handle
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -94,6 +143,21 @@ class Message:
         if action == "search":
             query = self.request.get("value")
             answer = request_search.get(query) or f'No match for "{query}".'
+            content = {"result": answer}
+        elif action == "recognize":
+            username = self.request.get("value")
+            if username in self.server_handle.clients:
+                answer = "\n\nHello, " + username + ". You registered on " + self.server_handle.clients[username] + ". Welcome back!\n\n"
+            else:
+                answer = "\n\nWe do not recognize the username \"" + username + "\". Please use argument <register> <username> to register.\n\n"
+            content = {"result": answer}
+        elif action == "register":
+            username = self.request.get("value")
+            if username in self.server_handle.clients:
+                answer = "\n\nWe already recieved your request to register, " + username + " on " + self.server_handle.clients[username] + ". Use argument <recognize> <username> to verify successful registration.\n\n"
+            else:
+                answer = "\n\nWe recieved your request to register your username \"" + username + "\". Use argument <recognize> <username> to verify successful registration.\n\n"
+                self.server_handle.clients[username] = datetime.date.today().strftime("%B %d, %Y")
             content = {"result": answer}
         else:
             content = {"result": f'Error: invalid action "{action}".'}
