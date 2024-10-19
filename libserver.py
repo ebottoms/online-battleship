@@ -60,9 +60,35 @@ class Server:
         finally:
             self.sel.close()
     
-    # TODO Remove all json response decisions from the Message class and move them to the Server class
-    def get_action(self):
-        pass
+    def get_server_reply(self, request):
+        action = request.get("action")
+        
+        if action == "search":
+            query = request.get("value")
+            answer = request_search.get(query) or f'No match for "{query}".'
+            reply = {"result": answer}
+            
+        elif action == "recognize":
+            username = request.get("value")
+            if username in self.clients:
+                answer = "\n\nHello, " + username + ". You registered on " + self.clients[username] + ". Welcome back!\n\n"
+            else:
+                answer = "\n\nWe do not recognize the username \"" + username + "\". Please use argument <register> <username> to register.\n\n"
+            reply = {"result": answer}
+            
+        elif action == "register":
+            username = request.get("value")
+            if username in self.clients:
+                answer = "\n\nWe already recieved your request to register, " + username + " on " + self.clients[username] + ". Use argument <recognize> <username> to verify successful registration.\n\n"
+            else:
+                answer = "\n\nWe recieved your request to register your username \"" + username + "\". Use argument <recognize> <username> to verify successful registration.\n\n"
+                self.clients[username] = datetime.date.today().strftime("%B %d, %Y")
+            reply = {"result": answer}
+            
+        else:
+            reply = {"result": f'Error: invalid action "{action}".'}
+        
+        return reply
 
 class Message:
     def __init__(self, selector, sock, addr, server_handle):
@@ -143,33 +169,7 @@ class Message:
         return message
 
     def _create_response_json_content(self):
-        action = self.request.get("action")
-        
-        if action == "search":
-            query = self.request.get("value")
-            answer = request_search.get(query) or f'No match for "{query}".'
-            content = {"result": answer}
-            
-        elif action == "recognize":
-            username = self.request.get("value")
-            if username in self.server_handle.clients:
-                answer = "\n\nHello, " + username + ". You registered on " + self.server_handle.clients[username] + ". Welcome back!\n\n"
-            else:
-                answer = "\n\nWe do not recognize the username \"" + username + "\". Please use argument <register> <username> to register.\n\n"
-            content = {"result": answer}
-            
-        elif action == "register":
-            username = self.request.get("value")
-            if username in self.server_handle.clients:
-                answer = "\n\nWe already recieved your request to register, " + username + " on " + self.server_handle.clients[username] + ". Use argument <recognize> <username> to verify successful registration.\n\n"
-            else:
-                answer = "\n\nWe recieved your request to register your username \"" + username + "\". Use argument <recognize> <username> to verify successful registration.\n\n"
-                self.server_handle.clients[username] = datetime.date.today().strftime("%B %d, %Y")
-            content = {"result": answer}
-            
-        else:
-            content = {"result": f'Error: invalid action "{action}".'}
-            
+        content = self.server_handle.get_server_reply(self.request)
         content_encoding = "utf-8"
         response = {
             "content_bytes": self._json_encode(content, content_encoding),
