@@ -8,12 +8,7 @@ import socket
 import traceback
 
 import datetime
-
-request_search = {
-    "morpheus": "Follow the white rabbit. \U0001f430",
-    "ring": "In the caves beneath the Misty Mountains. \U0001f48d",
-    "\U0001f436": "\U0001f43e Playing ball! \U0001f3d0",
-}
+import random
 
 class Server:
     def __init__(self, host, port):
@@ -21,6 +16,7 @@ class Server:
         self.host = host
         self.port = port
         self.clients = {}
+        self.sessionIDs = {}
     
     def accept_wrapper(self, sock):
         conn, addr = sock.accept()  # Should be ready to read
@@ -59,34 +55,90 @@ class Server:
             print("caught keyboard interrupt, exiting")
         finally:
             self.sel.close()
+            
+    def register_client(self, username, password):
+        default_bio = "There was an age undreamed-of... and unto this," + username.upper() + "... "
+        sessionID = random.randrange(1000000)
+        self.clients[username] = dict(
+                                        username=username,
+                                        password=password,
+                                        sessionID=None,
+                                        bio=default_bio,
+                                        registrationDate=datetime.date.today().strftime("%B %d, %Y")
+                                      )
+        
+    def verify_client(self, username, password):
+        if username in self.clients:
+            if self.clients[username]["password"] == password:
+                return True
+        return False
+    
+    def user_connected(self, sessionID):
+        if sessionID in self.sessionIDs:
+            return True
+        return False
+    
+    def connect_user(self, username):
+        sessionID = random.randrange(1000000)
+        while sessionID in self.sessionIDs:
+            sessionID = random.randrange(1000000)
+        self.clients[username]["sessionID"] = sessionID
+        self.sessionIDs[str(sessionID)] = sessionID
+        
+        return sessionID
     
     def get_server_reply(self, request):
-        action = request.get("action")
-        
-        if action == "search":
-            query = request.get("value")
-            answer = request_search.get(query) or f'No match for "{query}".'
-            reply = {"result": answer}
-            
-        elif action == "recognize":
-            username = request.get("value")
-            if username in self.clients:
-                answer = "\n\nHello, " + username + ". You registered on " + self.clients[username] + ". Welcome back!\n\n"
+        try:
+            action = request.get("action")
+
+            if action == "register":
+                username = request.get("username")
+                password = request.get("password")
+                if username in self.clients:
+                    answer = "\n\nWe already recieved your request to register, " + username + ", on " + self.clients[username]["registrationDate"] + ". Please login with argument <login> <username> <password>.\n\n"
+                else:
+                    self.register_client(username, password)
+                    answer = "\n\nWe recieved your request to register you, \"" + self.clients[username]["username"] + "\". Use argument <login> <username> <password> to login.\n\n"
+                reply = {"result": answer}
+
+            elif action == "login":
+                username = request.get("username")
+                password = request.get("password")
+                if self.verify_client(username, password):
+                    if self.clients[username]["sessionID"] == None:
+                        sessionID = self.connect_user(username)
+                        answer = "\n\nWelcome back, " + username + "! Here is your sessionID: " + str(sessionID) + "\n\n"
+                    else:
+                        answer = "\n\nYou are already logged in, " + username + ".\n\n"
+                else:
+                    answer = "\n\nFailed to log in. Either your username or password was incorrect.\n\n" 
+                reply = {"result": answer}
+                
+            elif action == "logout":
+                username = request.get("username")
+                sessionID = request.get("sessionID")
+                if str(sessionID) in self.sessionIDs:
+                    self.clients[username]["sessionID"] = None
+                    del self.sessionIDs[sessionID]
+                    answer = "\n\nYou've been logged out," + username + ".\n\n"
+                else:
+                    answer = "\n\nYou are already logged out.\n\n" 
+                reply = {"result": answer}
+                
+            elif action == "chat":
+                sessionID = request.get("sessionID")
+                message = request.get("message")
+                if self.user_connected(sessionID):
+                    answer = "\n\nMessage \"" + message + "\" sent.\n\n"
+                else:
+                    answer = "\n\nYou are not connected and therefore cannot send a message.\n\n"
+                reply = {"result": answer}
+
             else:
-                answer = "\n\nWe do not recognize the username \"" + username + "\". Please use argument <register> <username> to register.\n\n"
-            reply = {"result": answer}
-            
-        elif action == "register":
-            username = request.get("value")
-            if username in self.clients:
-                answer = "\n\nWe already recieved your request to register, " + username + " on " + self.clients[username] + ". Use argument <recognize> <username> to verify successful registration.\n\n"
-            else:
-                answer = "\n\nWe recieved your request to register your username \"" + username + "\". Use argument <recognize> <username> to verify successful registration.\n\n"
-                self.clients[username] = datetime.date.today().strftime("%B %d, %Y")
-            reply = {"result": answer}
-            
-        else:
-            reply = {"result": f'Error: invalid action "{action}".'}
+                reply = {"result": f'Error: invalid action "{action}".'}
+                
+        except Exception as e:
+            raise ValueError(e)
         
         return reply
 
