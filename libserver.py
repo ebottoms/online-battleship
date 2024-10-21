@@ -8,12 +8,7 @@ import socket
 import traceback
 
 import datetime
-
-request_search = {
-    "morpheus": "Follow the white rabbit. \U0001f430",
-    "ring": "In the caves beneath the Misty Mountains. \U0001f48d",
-    "\U0001f436": "\U0001f43e Playing ball! \U0001f3d0",
-}
+import random
 
 class Server:
     def __init__(self, host, port):
@@ -21,6 +16,7 @@ class Server:
         self.host = host
         self.port = port
         self.clients = {}
+        self.sessionIDs = {}
     
     def accept_wrapper(self, sock):
         conn, addr = sock.accept()  # Should be ready to read
@@ -60,35 +56,162 @@ class Server:
         finally:
             self.sel.close()
     
-    def get_server_reply(self, request):
-        action = request.get("action")
+    def save_client_info(self, clientInfo):
+        jsonName = "server_data/client_info/" + clientInfo["username"] + ".json"
+        f = open(jsonName, "a")
+        f.write(str(clientInfo))
+        f.close()
         
-        if action == "search":
-            query = request.get("value")
-            answer = request_search.get(query) or f'No match for "{query}".'
-            reply = {"result": answer}
-            
-        elif action == "recognize":
-            username = request.get("value")
-            if username in self.clients:
-                answer = "\n\nHello, " + username + ". You registered on " + self.clients[username] + ". Welcome back!\n\n"
+    def read_client_info(self, username):
+        jsonName = "server_data/client_info/" + username + ".json"
+        print("\n\n"+jsonName+"\n\n")
+        try:
+            f = open(jsonName)
+            print(json.load(f))
+            f.close()
+        except Exception:
+            print("\n\nblud\n\n")
+            return None
+    
+    def register_client(self, username, password):
+        defaultBio = "There was an age undreamed-of... and unto this," + username.upper() + "!"
+        clientInfo = dict(
+                             username=username,
+                             password=password,
+                             sessionID=None,
+                             bio=defaultBio,
+                             registrationDate=datetime.date.today().strftime("%B %d, %Y")
+                           )
+        self.clients[username] = clientInfo
+        try:
+            del clientInfo["sessionID"]
+            #TODO: stuff below
+            #self.save_client_info(clientInfo)
+            #self.read_client_info(clientInfo["username"])
+        except Exception as e:
+            print("\n\n" + e + "\n\n")
+        
+    def verify_client(self, username, password):
+        if username in self.clients:
+            if self.clients[username]["password"] == password:
+                return True
+        return False
+    
+    def user_connected(self, sessionID):
+        if sessionID in self.sessionIDs:
+            return True
+        return False
+    
+    def connect_user(self, username):
+        sessionID = random.randrange(1000000)
+        while sessionID in self.sessionIDs:
+            sessionID = random.randrange(1000000)
+        self.clients[username]["sessionID"] = sessionID
+        self.sessionIDs[str(sessionID)] = sessionID
+        
+        return sessionID
+    
+    def get_server_reply(self, request):
+        reply = dict(request=request, reply=None)
+        try:
+            action = request.get("action")
+
+            if action == "register":
+                try:
+                    username = request.get("username")
+                    password = request.get("password")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if username in self.clients:
+                        answer = dict(registered=True)
+                        reply["reply"] = answer
+                    else:
+                        self.register_client(username, password)
+                        answer = dict(registered=True)
+                        reply["reply"] = answer
+                except Exception as e:
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+
+            elif action == "login":
+                try:
+                    username = request.get("username")
+                    password = request.get("password")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if self.verify_client(username, password):
+                        if self.clients[username]["sessionID"] == None:
+                            sessionID = self.connect_user(username)
+                            answer = dict(loggedIn=True, badLogin=False, sessionID=sessionID)
+                            reply["reply"] = answer
+                        else:
+                            answer = dict(loggedIn=True, badLogin=False, sessionID=None)
+                            reply["reply"] = answer
+                    else:
+                        answer = dict(loggedIn=False, badLogin=True, sessionID=None)
+                        reply["reply"] = answer
+                except Exception as e:
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                
+            elif action == "logout":
+                try:
+                    username = request.get("username")
+                    sessionID = request.get("sessionID")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.sessionIDs:
+                        self.clients[username]["sessionID"] = None
+                        del self.sessionIDs[sessionID]
+                        answer = dict(loggedOut=True, unknownSessionID=False)
+                        reply["reply"] = answer
+                    else:
+                        answer = dict(loggedOut=False, unknownSessionID=True)
+                        reply["reply"] = answer
+                except Exception as e:
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                
+            elif action == "chat":
+                try:
+                    sessionID = request.get("sessionID")
+                    message = request.get("message")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if self.user_connected(sessionID):
+                        answer = dict(messageSent=True, unknownSessionID=False)
+                        reply["reply"] = answer
+                    else:
+                        answer = dict(messageSent=False, unknownSessionID=True)
+                        reply["reply"] = answer
+                except Exception as e:
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+
             else:
-                answer = "\n\nWe do not recognize the username \"" + username + "\". Please use argument <register> <username> to register.\n\n"
-            reply = {"result": answer}
-            
-        elif action == "register":
-            username = request.get("value")
-            if username in self.clients:
-                answer = "\n\nWe already recieved your request to register, " + username + " on " + self.clients[username] + ". Use argument <recognize> <username> to verify successful registration.\n\n"
-            else:
-                answer = "\n\nWe recieved your request to register your username \"" + username + "\". Use argument <recognize> <username> to verify successful registration.\n\n"
-                self.clients[username] = datetime.date.today().strftime("%B %d, %Y")
-            reply = {"result": answer}
-            
-        else:
-            reply = {"result": f'Error: invalid action "{action}".'}
+                answer = dict(badRequest=True)
+                reply["reply"] = answer
+                
+        except Exception as e:
+            answer = dict(badRequest=True)
+            reply["reply"] = answer
         
         return reply
+
+
+
 
 class Message:
     def __init__(self, selector, sock, addr, server_handle):

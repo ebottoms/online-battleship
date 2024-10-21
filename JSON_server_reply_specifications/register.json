@@ -1,0 +1,9 @@
+{
+    "request": "string",
+    "reply": {
+        "registered": "bool",
+        "badRequest": "bool",
+        "internalServerError": "bool"
+    }
+}
+  
