@@ -55,17 +55,41 @@ class Server:
             print("caught keyboard interrupt, exiting")
         finally:
             self.sel.close()
-            
+    
+    def save_client_info(self, clientInfo):
+        jsonName = "server_data/client_info/" + clientInfo["username"] + ".json"
+        f = open(jsonName, "a")
+        f.write(str(clientInfo))
+        f.close()
+        
+    def read_client_info(self, username):
+        jsonName = "server_data/client_info/" + username + ".json"
+        print("\n\n"+jsonName+"\n\n")
+        try:
+            f = open(jsonName)
+            print(json.load(f))
+            f.close()
+        except Exception:
+            print("\n\nblud\n\n")
+            return None
+    
     def register_client(self, username, password):
-        default_bio = "There was an age undreamed-of... and unto this," + username.upper() + "... "
-        sessionID = random.randrange(1000000)
-        self.clients[username] = dict(
-                                        username=username,
-                                        password=password,
-                                        sessionID=None,
-                                        bio=default_bio,
-                                        registrationDate=datetime.date.today().strftime("%B %d, %Y")
-                                      )
+        defaultBio = "There was an age undreamed-of... and unto this," + username.upper() + "!"
+        clientInfo = dict(
+                             username=username,
+                             password=password,
+                             sessionID=None,
+                             bio=defaultBio,
+                             registrationDate=datetime.date.today().strftime("%B %d, %Y")
+                           )
+        self.clients[username] = clientInfo
+        try:
+            del clientInfo["sessionID"]
+            #TODO: stuff below
+            #self.save_client_info(clientInfo)
+            #self.read_client_info(clientInfo["username"])
+        except Exception as e:
+            print("\n\n" + e + "\n\n")
         
     def verify_client(self, username, password):
         if username in self.clients:
@@ -185,6 +209,9 @@ class Server:
             reply["reply"] = answer
         
         return reply
+
+
+
 
 class Message:
     def __init__(self, selector, sock, addr, server_handle):

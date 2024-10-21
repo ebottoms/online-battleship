@@ -1,0 +1,10 @@
+{
+    "request": "string",
+    "reply": {
+        "messageSent": "bool",
+        "unknownSessionID": "integer",
+        "badRequest": "bool",
+        "internalServerError": "bool"
+    }
+}
+  

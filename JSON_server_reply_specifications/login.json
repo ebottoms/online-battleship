@@ -1,0 +1,11 @@
+{
+    "request": "string",
+    "reply": {
+        "loggedIn": "bool",
+        "badLogin": "bool",
+        "sessionID": "integer",
+        "badRequest": "bool",
+        "internalServerError": "bool"
+    }
+}
+  

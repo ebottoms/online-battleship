@@ -1,0 +1,10 @@
+{
+    "request": "string",
+    "reply": {
+        "loggedOut": "bool",
+        "unknownSessionID": "integer",
+        "badRequest": "bool",
+        "internalServerError": "bool"
+    }
+}
+  
