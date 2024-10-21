@@ -88,57 +88,101 @@ class Server:
         return sessionID
     
     def get_server_reply(self, request):
+        reply = dict(request=request, reply=None)
         try:
             action = request.get("action")
 
             if action == "register":
-                username = request.get("username")
-                password = request.get("password")
-                if username in self.clients:
-                    answer = "\n\nWe already recieved your request to register, " + username + ", on " + self.clients[username]["registrationDate"] + ". Please login with argument <login> <username> <password>.\n\n"
-                else:
-                    self.register_client(username, password)
-                    answer = "\n\nWe recieved your request to register you, \"" + self.clients[username]["username"] + "\". Use argument <login> <username> <password> to login.\n\n"
-                reply = {"result": answer}
+                try:
+                    username = request.get("username")
+                    password = request.get("password")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if username in self.clients:
+                        answer = dict(registered=True)
+                        reply["reply"] = answer
+                    else:
+                        self.register_client(username, password)
+                        answer = dict(registered=True)
+                        reply["reply"] = answer
+                except Exception as e:
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
 
             elif action == "login":
-                username = request.get("username")
-                password = request.get("password")
-                if self.verify_client(username, password):
-                    if self.clients[username]["sessionID"] == None:
-                        sessionID = self.connect_user(username)
-                        answer = "\n\nWelcome back, " + username + "! Here is your sessionID: " + str(sessionID) + "\n\n"
+                try:
+                    username = request.get("username")
+                    password = request.get("password")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if self.verify_client(username, password):
+                        if self.clients[username]["sessionID"] == None:
+                            sessionID = self.connect_user(username)
+                            answer = dict(loggedIn=True, badLogin=False, sessionID=sessionID)
+                            reply["reply"] = answer
+                        else:
+                            answer = dict(loggedIn=True, badLogin=False, sessionID=None)
+                            reply["reply"] = answer
                     else:
-                        answer = "\n\nYou are already logged in, " + username + ".\n\n"
-                else:
-                    answer = "\n\nFailed to log in. Either your username or password was incorrect.\n\n" 
-                reply = {"result": answer}
+                        answer = dict(loggedIn=False, badLogin=True, sessionID=None)
+                        reply["reply"] = answer
+                except Exception as e:
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
                 
             elif action == "logout":
-                username = request.get("username")
-                sessionID = request.get("sessionID")
-                if str(sessionID) in self.sessionIDs:
-                    self.clients[username]["sessionID"] = None
-                    del self.sessionIDs[sessionID]
-                    answer = "\n\nYou've been logged out," + username + ".\n\n"
-                else:
-                    answer = "\n\nYou are already logged out.\n\n" 
-                reply = {"result": answer}
+                try:
+                    username = request.get("username")
+                    sessionID = request.get("sessionID")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.sessionIDs:
+                        self.clients[username]["sessionID"] = None
+                        del self.sessionIDs[sessionID]
+                        answer = dict(loggedOut=True, unknownSessionID=False)
+                        reply["reply"] = answer
+                    else:
+                        answer = dict(loggedOut=False, unknownSessionID=True)
+                        reply["reply"] = answer
+                except Exception as e:
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
                 
             elif action == "chat":
-                sessionID = request.get("sessionID")
-                message = request.get("message")
-                if self.user_connected(sessionID):
-                    answer = "\n\nMessage \"" + message + "\" sent.\n\n"
-                else:
-                    answer = "\n\nYou are not connected and therefore cannot send a message.\n\n"
-                reply = {"result": answer}
+                try:
+                    sessionID = request.get("sessionID")
+                    message = request.get("message")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if self.user_connected(sessionID):
+                        answer = dict(messageSent=True, unknownSessionID=False)
+                        reply["reply"] = answer
+                    else:
+                        answer = dict(messageSent=False, unknownSessionID=True)
+                        reply["reply"] = answer
+                except Exception as e:
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
 
             else:
-                reply = {"result": f'Error: invalid action "{action}".'}
+                answer = dict(badRequest=True)
+                reply["reply"] = answer
                 
         except Exception as e:
-            raise ValueError(e)
+            answer = dict(badRequest=True)
+            reply["reply"] = answer
         
         return reply
 
