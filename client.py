@@ -29,7 +29,7 @@ def create_request(action, values):
         return dict(
             type="text/json",
             encoding="utf-8",
-            content=dict(action=action, username=values[0], sessionID=values[1]),
+            content=dict(action=action, sessionID=values[0]),
         )
     elif (action == "join"):
         return dict(

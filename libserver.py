@@ -9,14 +9,15 @@ import traceback
 
 import datetime
 import random
+import os
 
 class Server:
     def __init__(self, host, port):
         self.sel = selectors.DefaultSelector()
         self.host = host
         self.port = port
-        self.clients = {}
         self.sessionIDs = {}
+        self.clientSIDs = {}
     
     def accept_wrapper(self, sock):
         conn, addr = sock.accept()  # Should be ready to read
@@ -58,19 +59,19 @@ class Server:
     
     def save_client_info(self, clientInfo):
         jsonName = "server_data/client_info/" + clientInfo["username"] + ".json"
+        if os.path.exists(jsonName):
+            os.remove(jsonName)
         f = open(jsonName, "a")
-        f.write(str(clientInfo))
+        f.write(json.dumps(clientInfo))
         f.close()
         
     def read_client_info(self, username):
         jsonName = "server_data/client_info/" + username + ".json"
-        print("\n\n"+jsonName+"\n\n")
         try:
-            f = open(jsonName)
-            print(json.load(f))
-            f.close()
-        except Exception:
-            print("\n\nblud\n\n")
+            with open(jsonName, 'r') as file:
+                data = json.load(file)
+            return data
+        except Exception as e:
             return None
     
     def register_client(self, username, password):
@@ -82,18 +83,25 @@ class Server:
                              bio=defaultBio,
                              registrationDate=datetime.date.today().strftime("%B %d, %Y")
                            )
-        self.clients[username] = clientInfo
         try:
-            del clientInfo["sessionID"]
+            #del clientInfo["sessionID"]
             #TODO: stuff below
-            #self.save_client_info(clientInfo)
-            #self.read_client_info(clientInfo["username"])
+            self.save_client_info(clientInfo)
+            self.read_client_info(clientInfo["username"])
         except Exception as e:
             print("\n\n" + e + "\n\n")
+            
+    def client_registered(self, username):
+        jsonName = "server_data/client_info/" + username + ".json"
+        if os.path.exists(jsonName):
+            return True
+        else:
+            return False
         
     def verify_client(self, username, password):
-        if username in self.clients:
-            if self.clients[username]["password"] == password:
+        if self.client_registered(username):
+            clientInfo = self.read_client_info(username)
+            if clientInfo["password"] == password:
                 return True
         return False
     
@@ -106,10 +114,14 @@ class Server:
         sessionID = random.randrange(1000000)
         while sessionID in self.sessionIDs:
             sessionID = random.randrange(1000000)
-        self.clients[username]["sessionID"] = sessionID
-        self.sessionIDs[str(sessionID)] = sessionID
-        
-        return sessionID
+        self.sessionIDs[str(sessionID)] = username
+        self.clientSIDs[username] = sessionID
+    
+    def logged_in(self, username):
+        if username in self.clientSIDs:
+            return True
+        else:
+            return False
     
     def get_server_reply(self, request):
         reply = dict(request=request, reply=None)
@@ -125,7 +137,7 @@ class Server:
                     reply["reply"] = answer
                     return reply
                 try:
-                    if username in self.clients:
+                    if self.client_registered(username):
                         answer = dict(registered=True)
                         reply["reply"] = answer
                     else:
@@ -133,6 +145,7 @@ class Server:
                         answer = dict(registered=True)
                         reply["reply"] = answer
                 except Exception as e:
+                    print("\n" + str(e) +"\n")
                     answer = dict(internalServerError=True)
                     reply["reply"] = answer
 
@@ -146,13 +159,10 @@ class Server:
                     return reply
                 try:
                     if self.verify_client(username, password):
-                        if self.clients[username]["sessionID"] == None:
-                            sessionID = self.connect_user(username)
-                            answer = dict(loggedIn=True, badLogin=False, sessionID=sessionID)
-                            reply["reply"] = answer
-                        else:
-                            answer = dict(loggedIn=True, badLogin=False, sessionID=None)
-                            reply["reply"] = answer
+                        if not self.logged_in(username):
+                            self.connect_user(username)
+                        answer = dict(loggedIn=True, badLogin=False, sessionID=self.clientSIDs[username])
+                        reply["reply"] = answer
                     else:
                         answer = dict(loggedIn=False, badLogin=True, sessionID=None)
                         reply["reply"] = answer
@@ -162,7 +172,6 @@ class Server:
                 
             elif action == "logout":
                 try:
-                    username = request.get("username")
                     sessionID = request.get("sessionID")
                 except Exception as e:
                     answer = dict(badRequest=True)
@@ -170,14 +179,15 @@ class Server:
                     return reply
                 try:
                     if str(sessionID) in self.sessionIDs:
-                        self.clients[username]["sessionID"] = None
-                        del self.sessionIDs[sessionID]
+                        del self.clientSIDs[self.sessionIDs[str(sessionID)]]
+                        del self.sessionIDs[str(sessionID)]
                         answer = dict(loggedOut=True, unknownSessionID=False)
                         reply["reply"] = answer
                     else:
                         answer = dict(loggedOut=False, unknownSessionID=True)
                         reply["reply"] = answer
                 except Exception as e:
+                    print("\n" + str(e) +"\n")
                     answer = dict(internalServerError=True)
                     reply["reply"] = answer
                 
@@ -197,6 +207,7 @@ class Server:
                         answer = dict(messageSent=False, unknownSessionID=True)
                         reply["reply"] = answer
                 except Exception as e:
+                    print("\n" + str(e) +"\n")
                     answer = dict(internalServerError=True)
                     reply["reply"] = answer
 
@@ -205,8 +216,11 @@ class Server:
                 reply["reply"] = answer
                 
         except Exception as e:
+            print("\n" + str(e) + "\n")
             answer = dict(badRequest=True)
             reply["reply"] = answer
+        
+        reply["reply"] = json.dumps(reply["reply"])
         
         return reply
 
