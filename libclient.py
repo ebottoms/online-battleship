@@ -3,7 +3,140 @@ import sys
 import selectors
 import json
 import io
+import traceback
 import struct
+import socket
+import time
+
+class Client:
+    def __init__(self):
+        self.sel = None
+
+    text_json_commands = ["search", "register", "recognize"]
+
+    def create_request(self, action, values):
+        if (action == "register"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, username=values[0], password=values[1]),
+            )
+        elif (action == "login"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, username=values[0], password=values[1]),
+            )
+        elif (action == "logout"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0]),
+            )
+        elif (action == "join"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, gameID=values[0], password=values[1]),
+            )
+        elif (action == "chat"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0], message=values[1]),
+            )
+        elif (action == "quit"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action),
+            )
+        elif (action == "ping"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action),
+            )
+        elif (action == "create_lobby"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0], lobbyName=values[1]),
+            )
+        elif (action == "join_lobby"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0], lobbyName=values[1]),
+            )
+        elif (action == "get_lobby_status"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, lobbyName=values[0]),
+            )
+        elif (action == "get_client_status"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0]),
+            )
+        elif (action == "double") or (action == "negate"):
+            return dict(
+                type="binary/custom-client-binary-type",
+                encoding="binary",
+                content=struct.pack(">6si", action.encode(encoding="utf-8"), int(values[0])),
+            )
+        else:
+            return dict(
+                type="binary/custom-client-binary-type",
+                encoding="binary",
+                content=bytes(action + values[0], encoding="utf-8"),
+            )
+
+
+    def start_connection(self, host, port, request):
+        addr = (host, port)
+        #print("starting connection to", addr)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setblocking(False)
+        sock.connect_ex(addr)
+        events = selectors.EVENT_READ | selectors.EVENT_WRITE
+        message = Message(self.sel, sock, addr, request)
+        self.sel.register(sock, events, data=message)
+        
+
+    def send(self, host, port, action, values=None):
+        self.sel = selectors.DefaultSelector()
+        request = self.create_request(action, values)
+        self.start_connection(host, port, request)
+        response = None
+        try:
+            while True:
+                events = self.sel.select(timeout=1)
+                for key, mask in events:
+                    message = key.data
+                    try:
+                        message.process_events(mask)
+                        if message.exportResponse == True:
+                            response = message.response
+                    except Exception:
+                        #print(
+                        #    "main: error: exception for",
+                        #    f"{message.addr}:\n{traceback.format_exc()}",
+                        #)
+                        #time.sleep(10)
+                        message.close()
+                # Check for a socket being monitored to continue.
+                if not self.sel.get_map():
+                    break
+                
+        except KeyboardInterrupt:
+            print("caught keyboard interrupt, exiting")
+        finally:
+            self.sel.close()
+
+        return response
 
 
 class Message:
@@ -18,6 +151,7 @@ class Message:
         self._jsonheader_len = None
         self.jsonheader = None
         self.response = None
+        self.exportResponse = False
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -46,7 +180,7 @@ class Message:
 
     def _write(self):
         if self._send_buffer:
-            print("sending", repr(self._send_buffer), "to", self.addr)
+            #print("sending", repr(self._send_buffer), "to", self.addr)
             try:
                 # Should be ready to write
                 sent = self.sock.send(self._send_buffer)
@@ -83,15 +217,15 @@ class Message:
 
     def _process_response_json_content(self):
         content = self.response
-        result = content.get("result")
-        print(f"got result: {result}")
+        #reply = content.get("reply")
+        self.exportResponse = True
 
     def _process_response_binary_content(self):
         content = self.response
-        print(f"got response: {repr(content)}")
+        #print(f"got response: {repr(content)}")
         if b"result" in content:
             value = struct.unpack(">i", content[6:])[0]
-            print('result:', int(value))
+            #print('result:', int(value))
 
     def process_events(self, mask):
         if mask & selectors.EVENT_READ:
@@ -125,7 +259,7 @@ class Message:
                 self._set_selector_events_mask("r")
 
     def close(self):
-        print("closing connection to", self.addr)
+        #print("closing connection to", self.addr)
         try:
             self.selector.unregister(self.sock)
         except Exception as e:
@@ -198,15 +332,15 @@ class Message:
         if self.jsonheader["content-type"] == "text/json":
             encoding = self.jsonheader["content-encoding"]
             self.response = self._json_decode(data, encoding)
-            print("received response", repr(self.response), "from", self.addr)
+            #print("received response", repr(self.response), "from", self.addr)
             self._process_response_json_content()
         else:
             # Binary or unknown content-type
             self.response = data
-            print(
-                f'received {self.jsonheader["content-type"]} response from',
-                self.addr,
-            )
+            #print(
+            #    f'received {self.jsonheader["content-type"]} response from',
+            #    self.addr,
+            #)
             self._process_response_binary_content()
         # Close when response has been processed
         self.close()

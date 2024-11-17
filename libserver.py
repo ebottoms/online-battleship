@@ -11,6 +11,9 @@ import datetime
 import random
 import os
 
+import libclient
+import battleship
+
 class Server:
     def __init__(self, host, port):
         self.sel = selectors.DefaultSelector()
@@ -18,6 +21,18 @@ class Server:
         self.port = port
         self.sessionIDs = {}
         self.clientSIDs = {}
+        self.clients = {}
+        self.lobbies = {}
+        
+    def start_connection(self, host, port, message):
+        addr = (host, port)
+        print("starting connection to", addr)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setblocking(False)
+        sock.connect_ex(addr)
+        events = selectors.EVENT_READ | selectors.EVENT_WRITE
+        message = libclient.Message(self.sel, sock, addr, message)
+        self.sel.register(sock, events, data=message)
     
     def accept_wrapper(self, sock):
         conn, addr = sock.accept()  # Should be ready to read
@@ -38,7 +53,7 @@ class Server:
 
         try:
             while True:
-                events = self.sel.select(timeout=None)
+                events = self.sel.select(timeout=0.1)
                 for key, mask in events:
                     if key.data is None:
                         self.accept_wrapper(key.fileobj)
@@ -51,7 +66,7 @@ class Server:
                                 "main: error: exception for",
                                 f"{message.addr}:\n{traceback.format_exc()}",
                             )
-                            message.close()
+                            message.close()       
         except KeyboardInterrupt:
             print("caught keyboard interrupt, exiting")
         finally:
@@ -116,6 +131,11 @@ class Server:
             sessionID = random.randrange(1000000)
         self.sessionIDs[str(sessionID)] = username
         self.clientSIDs[username] = sessionID
+        self.clients[str(sessionID)] = {
+            'username': username,
+            'lobbyName': None,
+            'inGame': False
+        }
     
     def logged_in(self, username):
         if username in self.clientSIDs:
@@ -181,6 +201,9 @@ class Server:
                     if str(sessionID) in self.sessionIDs:
                         del self.clientSIDs[self.sessionIDs[str(sessionID)]]
                         del self.sessionIDs[str(sessionID)]
+                        lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
+                        del self.lobbies[lobbyName]
+                        del self.clients[str(sessionID)]
                         answer = dict(loggedOut=True, unknownSessionID=False)
                         reply["reply"] = answer
                     else:
@@ -206,6 +229,111 @@ class Server:
                     else:
                         answer = dict(messageSent=False, unknownSessionID=True)
                         reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + str(e) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+
+            elif action == "ping":
+                try:
+                    answer = dict(pinged=True)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + str(e) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                    
+            elif action == "create_lobby":
+                try:
+                    sessionID = request.get("sessionID")
+                    lobbyName = request.get("lobbyName")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.sessionIDs:
+                        if lobbyName not in self.lobbies:
+                            self.clients.get(str(sessionID))['lobbyName'] = lobbyName
+                            self.lobbies[lobbyName] = {
+                                'gameStarted': False,
+                                'player1': self.sessionIDs.get(str(sessionID)),
+                                'player2': None,
+                                'gameID': None,
+                            }
+                            answer = dict(lobbyCreated=True, invalidSessionID=False)
+                        else:
+                            answer = dict(lobbyCreated=False, invalidSessionID=False, lobbyAlreadyExists=True)
+                    else:
+                        answer = dict(lobbyCreated=False, invalidSessionID=True)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + print(traceback.format_exc()) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                    
+            elif action == "join_lobby":
+                try:
+                    sessionID = request.get("sessionID")
+                    lobbyName = request.get("lobbyName")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.clients:
+                        if lobbyName in self.lobbies:
+                            lobby = self.lobbies[lobbyName]
+                            if lobby['player1'] is None:
+                                raise ValueError("Something went wrong on the server side. Please try again.")
+                            if lobby['player2'] is None:
+                                lobby['player2'] = self.clients.get(str(sessionID)).get('username')
+                                self.clients.get(str(sessionID))['lobbyName'] = lobbyName
+                                answer = dict(invalidSessionID=False, lobbyExists=True, lobbyFull=False, lobbyJoined=True)
+                            else:
+                                answer = dict(invalidSessionID=False, lobbyExists=True, lobbyFull=True, lobbyJoined=False)
+                        else:
+                            answer = dict(invalidSessionID=False, lobbyExists=False)
+                    else:
+                        answer = dict(invalidSessionID=True)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + print(traceback.format_exc()) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                    
+            elif action == "get_lobby_status":
+                try:
+                    lobbyName = request.get("lobbyName")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if lobbyName in self.lobbies:
+                        lobby = self.lobbies.get(lobbyName)
+                        answer = dict(lobbyExists=True, lobby=lobby)
+                    else:
+                        answer = dict(lobbyExists=True, lobby=None)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + str(e) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                    
+            elif action == "get_client_status":
+                try:
+                    sessionID = request.get("sessionID")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.clients:
+                        answer = dict(invalidSessionID=False, clientStatus=self.clients.get(str(sessionID)))
+                    else:
+                        answer = dict(invalidSessionID=True)
+                    reply["reply"] = answer
                 except Exception as e:
                     print("\n" + str(e) +"\n")
                     answer = dict(internalServerError=True)
