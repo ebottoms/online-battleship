@@ -4,6 +4,7 @@ import time
 import traceback
 import json
 import libclient
+import battleshipClient
 
 # GENERAL FUNCTIONS
 def exit_program():
@@ -184,6 +185,16 @@ class UI:
         servReply1 = self.backend.send(host, port, "get_lobby_status", [lobbyName])
         lobby = json.loads(servReply1.get('reply')).get('lobby')
         if not lobby['player2'] is None and not lobby['player1'] is None:
+            # LOOP
+            # Tell server to start the game
+            #
+            # Game Started? if not: loop again
+            gameStarted = False
+            while not gameStarted:
+                servReply2 = self.backend.send(host, port, "game_start", [self.clientInfo.get('sessionID')])
+                gameStarted = json.loads(servReply2.get('reply')).get('gameStarted')
+                time.sleep(2)
+            print('\nYAY\n')
             self.inGame = True
             print("STATUS: Starting match...")
             print("PLAYERS: " + lobby['player1'] + "  VS  " + lobby['player2'])
@@ -191,6 +202,32 @@ class UI:
             print("STATUS: Waiting for Player 2 to join...")
             print("PLAYERS: " + self.clientInfo.get('username') + "  VS  " + "(Not Joined Yet)")
         time.sleep(3)
+        
+    def displayGame(self):
+        host = self.serverInfo.get('host')
+        port = self.serverInfo.get('port')
+        
+        # Initialize client game, send server list of boat positions
+        game = battleshipClient.Game()
+        game.initialize()
+        
+        Win = False
+        gameOver = False
+        while not gameOver:
+            pass
+            # Ask server if game is still going
+            # If game is finished:
+                # Who won? Who Forfeit?
+            # Ask server if it's my turn
+            # If it's my turn:
+                # Ask server for new incoming strike location
+                # Ask for result of my previous outgoing strike (?) -> (x) or (!)
+                # enemyHitMe, outgoingStrike = game.takeMyTurn(incomingStikeLocation, resultOfPreviousStrike)
+                # Process result of my previous outgoing strike
+                # Process incoming strike
+                    # Update board and boat statuses
+                    # Tell server result of incoming strike
+                    # Tell server my outgoing strike's location
         
     # "ENSURE" METHODS (to prevent state errors)
     def ensureNoServerState(self):
@@ -242,6 +279,15 @@ class UI:
         self.serverFound = json.loads(servReply.get('reply')).get('pinged')
         # Set to not in-game
         self.inGame = False
+        
+    def ensureInGameState(self):
+        host = self.serverInfo.get('host')
+        port = self.serverInfo.get('port')
+        # Ensure still server exists. If not, crash.
+        servReply = self.backend.send(host, port, action='ping')
+        self.serverFound = json.loads(servReply.get('reply')).get('pinged')
+        # Set to in-game
+        self.inGame = True
     
     # UI HANDLING
     def updateDisplay(self):
@@ -284,11 +330,22 @@ class UI:
                 return
         
         elif self.serverFound and self.connectedToServer and self.inGame:
-            clear_terminal()
-            print("Now a game state")
-            time.sleep(5)
-            #self.ensureInGameState()
-            #self.displayGame()
+            try:
+                self.ensureLobbyState()
+            except:
+                # Server not found. Skip this loop and go back to find server prompt
+                self.serverFound = False
+                serverNotFoundMessage()
+                return
+            try:
+                self.displayGame()
+            except Exception as e:
+                # Server not found. Skip this loop and go back to find server prompt
+                print("\n\n\n" + traceback.format_exc() + "\n\n\n")
+                time.sleep(10)
+                self.serverFound = False
+                serverNotFoundMessage()
+                return
             
         else:
             clear_terminal()
@@ -301,6 +358,7 @@ class UI:
             self.findServerPrompt()
             while(True):
                 self.updateDisplay()
+                
         except KeyboardInterrupt:
             clear_terminal()
             print("Caught keyboard interrupt. Exiting...")
