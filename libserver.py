@@ -12,7 +12,7 @@ import random
 import os
 
 import libclient
-import battleship
+import battleshipServer
 
 class Server:
     def __init__(self, host, port):
@@ -23,6 +23,7 @@ class Server:
         self.clientSIDs = {}
         self.clients = {}
         self.lobbies = {}
+        self.games = {}
         
     def start_connection(self, host, port, message):
         addr = (host, port)
@@ -336,6 +337,37 @@ class Server:
                     reply["reply"] = answer
                 except Exception as e:
                     print("\n" + str(e) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                    
+            elif action == "game_start":
+                try:
+                    sessionID = request.get("sessionID")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.clients:
+                        if not self.clients.get(str(sessionID)).get('lobbyName') is None:
+                            lobby = self.lobbies.get(self.clients.get(str(sessionID)).get('lobbyName'))
+                            if not lobby.get('gameStarted'):
+                                if not lobby.get('player2') is None and not lobby.get('player1') is None:
+                                    lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
+                                    lobby['gameStared'] = True
+                                    self.games[lobbyName] = battleshipServer.Referee(P1_name=lobby.get('player1'), P2_name=lobby.get('player2'))
+                                    answer = dict(invalidSessionID=False, notInLobby=False, alreadyStarted=False, gameStarted=True)
+                                else:
+                                    answer = dict(invalidSessionID=False, notInLobby=False, alreadyStarted=False, gameStarted=False)
+                            else:
+                                answer = dict(invalidSessionID=False, notInLobby=False, alreadyStarted=True)
+                        else:
+                            answer = dict(invalidSessionID=False, notInLobby=True)
+                    else:
+                        answer = dict(invalidSessionID=True)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + print(traceback.format_exc()) +"\n")
                     answer = dict(internalServerError=True)
                     reply["reply"] = answer
 

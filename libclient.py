@@ -81,6 +81,36 @@ class Client:
                 encoding="utf-8",
                 content=dict(action=action, sessionID=values[0]),
             )
+        elif (action == "game_start"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0]),
+            )
+        elif (action == "game_over"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0]),
+            )
+        elif (action == "my_turn"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0]),
+            )
+        elif (action == "incoming_strike"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0]),
+            )
+        elif (action == "result_outgoing_strike"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0]),
+            )
         elif (action == "double") or (action == "negate"):
             return dict(
                 type="binary/custom-client-binary-type",
