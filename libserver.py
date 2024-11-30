@@ -8,6 +8,7 @@ import socket
 import traceback
 
 import datetime
+import time
 import random
 import os
 
@@ -166,7 +167,7 @@ class Server:
                         answer = dict(registered=True)
                         reply["reply"] = answer
                 except Exception as e:
-                    print("\n" + str(e) +"\n")
+                    print("\n" + print(traceback.format_exc()) +"\n")
                     answer = dict(internalServerError=True)
                     reply["reply"] = answer
 
@@ -211,7 +212,7 @@ class Server:
                         answer = dict(loggedOut=False, unknownSessionID=True)
                         reply["reply"] = answer
                 except Exception as e:
-                    print("\n" + str(e) +"\n")
+                    print("\n" + print(traceback.format_exc()) +"\n")
                     answer = dict(internalServerError=True)
                     reply["reply"] = answer
                 
@@ -231,7 +232,7 @@ class Server:
                         answer = dict(messageSent=False, unknownSessionID=True)
                         reply["reply"] = answer
                 except Exception as e:
-                    print("\n" + str(e) +"\n")
+                    print("\n" + print(traceback.format_exc()) +"\n")
                     answer = dict(internalServerError=True)
                     reply["reply"] = answer
 
@@ -240,7 +241,7 @@ class Server:
                     answer = dict(pinged=True)
                     reply["reply"] = answer
                 except Exception as e:
-                    print("\n" + str(e) +"\n")
+                    print("\n" + print(traceback.format_exc()) +"\n")
                     answer = dict(internalServerError=True)
                     reply["reply"] = answer
                     
@@ -318,7 +319,7 @@ class Server:
                         answer = dict(lobbyExists=True, lobby=None)
                     reply["reply"] = answer
                 except Exception as e:
-                    print("\n" + str(e) +"\n")
+                    print("\n" + print(traceback.format_exc()) +"\n")
                     answer = dict(internalServerError=True)
                     reply["reply"] = answer
                     
@@ -336,7 +337,7 @@ class Server:
                         answer = dict(invalidSessionID=True)
                     reply["reply"] = answer
                 except Exception as e:
-                    print("\n" + str(e) +"\n")
+                    print("\n" + print(traceback.format_exc()) +"\n")
                     answer = dict(internalServerError=True)
                     reply["reply"] = answer
                     
@@ -363,6 +364,123 @@ class Server:
                                 answer = dict(invalidSessionID=False, notInLobby=False, alreadyStarted=True)
                         else:
                             answer = dict(invalidSessionID=False, notInLobby=True)
+                    else:
+                        answer = dict(invalidSessionID=True)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + print(traceback.format_exc()) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+
+            elif action == "turn":
+                try:
+                    sessionID = request.get("sessionID")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.clients:
+                        if not self.clients.get(str(sessionID)).get('lobbyName') is None:
+                            lobby = self.lobbies.get(self.clients.get(str(sessionID)).get('lobbyName'))
+                            if not lobby.get('gameStarted'):
+                                lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
+                                turn = self.games.get(lobbyName).turn
+                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, turn=turn)
+                            else:
+                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=False)
+                        else:
+                            answer = dict(invalidSessionID=False, notInLobby=True)
+                    else:
+                        answer = dict(invalidSessionID=True)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + print(traceback.format_exc()) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                    
+            elif action == "incoming_strike":
+                try:
+                    sessionID = request.get("sessionID")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.clients:
+                        if not self.clients.get(str(sessionID)).get('lobbyName') is None:
+                            lobby = self.lobbies.get(self.clients.get(str(sessionID)).get('lobbyName'))
+                            username = self.clients.get(str(sessionID)).get('username')
+                            print("\n\n\n" + username + "\n\n")
+                            if not lobby.get('gameStarted'):
+                                lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
+                                location = self.games.get(lobbyName).getIncomingStrike(username)
+                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, location=location)
+                            else:
+                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=False)
+                        else:
+                            answer = dict(invalidSessionID=False, notInLobby=True)
+                    else:
+                        answer = dict(invalidSessionID=True)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + print(traceback.format_exc()) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                    
+            elif action == "result_outgoing_strike":
+                try:
+                    sessionID = request.get("sessionID")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.clients:
+                        if not self.clients.get(str(sessionID)).get('lobbyName') is None:
+                            lobby = self.lobbies.get(self.clients.get(str(sessionID)).get('lobbyName'))
+                            username = self.clients.get(str(sessionID)).get('username')
+                            print("\n\n\n" + username + "\n\n")
+                            if not lobby.get('gameStarted'):
+                                lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
+                                result = self.games.get(lobbyName).getResultOfPreviousStrike(username)
+                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, result=result)
+                            else:
+                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=False)
+                        else:
+                            answer = dict(invalidSessionID=False, notInLobby=True)
+                    else:
+                        answer = dict(invalidSessionID=True)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + print(traceback.format_exc()) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                    
+            elif action == "end_turn":
+                try:
+                    sessionID = request.get("sessionID")
+                    result = request.get("result")
+                    outgoing = request.get("outgoing")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.clients:
+                        if not self.clients.get(str(sessionID)).get('lobbyName') is None:
+                            lobby = self.lobbies.get(self.clients.get(str(sessionID)).get('lobbyName'))
+                            username = self.clients.get(str(sessionID)).get('username')
+                            if not lobby.get('gameStarted'):
+                                lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
+                                self.games.get(lobbyName).setResultOfStrike(username, result)
+                                self.games.get(lobbyName).setOutgoingStrike(username, outgoing)
+                                self.games.get(lobbyName).switchTurns()
+                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, turnEnded=True)
+                            else:
+                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=False, turnEnded=False)
+                        else:
+                            answer = dict(invalidSessionID=False, notInLobby=True, turnEnded=False)
                     else:
                         answer = dict(invalidSessionID=True)
                     reply["reply"] = answer

@@ -93,7 +93,7 @@ class Client:
                 encoding="utf-8",
                 content=dict(action=action, sessionID=values[0]),
             )
-        elif (action == "my_turn"):
+        elif (action == "turn"):
             return dict(
                 type="text/json",
                 encoding="utf-8",
@@ -110,6 +110,12 @@ class Client:
                 type="text/json",
                 encoding="utf-8",
                 content=dict(action=action, sessionID=values[0]),
+            )
+        elif (action == "end_turn"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0], result=values[1], outgoing=values[2]),
             )
         elif (action == "double") or (action == "negate"):
             return dict(
