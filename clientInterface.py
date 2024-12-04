@@ -382,8 +382,8 @@ class UI:
                 self.displayLobby()
             except Exception as e:
                 # Server not found. Skip this loop and go back to find server prompt
-                print("\n\n\n" + traceback.format_exc() + "\n\n\n")
-                time.sleep(10)
+                #print("\n\n\n" + traceback.format_exc() + "\n\n\n")
+                #time.sleep(10)
                 self.serverFound = False
                 serverNotFoundMessage()
                 return
@@ -400,8 +400,8 @@ class UI:
                 self.displayGame()
             except Exception as e:
                 # Server not found. Skip this loop and go back to find server prompt
-                print("\n\n~~DEBUG INFO~~\n" + traceback.format_exc() + "\n~~~~~~~~~~~~~\n\n")
-                time.sleep(10)
+                #print("\n\n~~DEBUG INFO~~\n" + traceback.format_exc() + "\n~~~~~~~~~~~~~\n\n")
+                #time.sleep(10)
                 self.serverFound = False
                 serverNotFoundMessage()
                 return
@@ -412,11 +412,17 @@ class UI:
             exit_program()
         
     # LAUNCHING POINT
-    def start(self):
+    def start(self, host, port, action, values):
         try:
-            self.findServerPrompt()
-            while(True):
-                self.updateDisplay()
+            if not action is None and not values is None:
+                servReply = self.backend.send(host, port, action=action, values=values)
+                print()
+                print(json.loads(servReply.get('reply')))
+                print()
+            else:
+                self.findServerPrompt()
+                while(True):
+                    self.updateDisplay()
                 
         except KeyboardInterrupt:
             clear_terminal()
