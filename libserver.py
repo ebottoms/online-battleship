@@ -501,8 +501,8 @@ class Server:
                             print("\n\n\n" + username + "\n\n")
                             if lobby.get('gameStarted'):
                                 lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
-                                result = self.games.get(lobbyName).getResultOfPreviousStrike(username)
-                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, result=result)
+                                result, shipStats = self.games.get(lobbyName).getResultOfPreviousStrike(username)
+                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, result=result, shipStats=shipStats)
                             else:
                                 answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=False)
                         else:
@@ -520,6 +520,7 @@ class Server:
                     sessionID = request.get("sessionID")
                     result = request.get("result")
                     outgoing = request.get("outgoing")
+                    shipStats = request.get("shipStats")
                 except Exception as e:
                     answer = dict(badRequest=True)
                     reply["reply"] = answer
@@ -531,7 +532,7 @@ class Server:
                             username = self.clients.get(str(sessionID)).get('username')
                             if lobby.get('gameStarted'):
                                 lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
-                                self.games.get(lobbyName).setResultOfStrike(username, result)
+                                self.games.get(lobbyName).setResultOfStrike(username, result, shipStats)
                                 self.games.get(lobbyName).setOutgoingStrike(username, outgoing)
                                 self.games.get(lobbyName).switchTurns()
                                 answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, turnEnded=True)
