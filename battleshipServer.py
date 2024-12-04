@@ -50,12 +50,12 @@ class Referee:
             if self.turn == self.P1_name:
                 self.P2_result_of_previous_outgoing_strike = strike_result
                 if strike_result == '!':
-                    self.P2_num_hits += 1
+                    self.P1_num_hits += 1
                     self.checkWinState()
             else:
                 self.P1_result_of_previous_outgoing_strike = strike_result
                 if strike_result == '!':
-                    self.P1_num_hits += 1
+                    self.P2_num_hits += 1
                     self.checkWinState()
             return True
         else:

@@ -101,8 +101,6 @@ class Server:
                              registrationDate=datetime.date.today().strftime("%B %d, %Y")
                            )
         try:
-            #del clientInfo["sessionID"]
-            #TODO: stuff below
             self.save_client_info(clientInfo)
             self.read_client_info(clientInfo["username"])
         except Exception as e:
@@ -204,7 +202,10 @@ class Server:
                         del self.clientSIDs[self.sessionIDs[str(sessionID)]]
                         del self.sessionIDs[str(sessionID)]
                         lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
-                        del self.lobbies[lobbyName]
+                        try:
+                            del self.lobbies[lobbyName]
+                        except:
+                            pass
                         del self.clients[str(sessionID)]
                         answer = dict(loggedOut=True, unknownSessionID=False)
                         reply["reply"] = answer
@@ -285,7 +286,7 @@ class Server:
                 try:
                     if str(sessionID) in self.clients:
                         if lobbyName in self.lobbies:
-                            lobby = self.lobbies[lobbyName]
+                            lobby = self.lobbies.get(lobbyName)
                             if lobby['player1'] is None:
                                 raise ValueError("Something went wrong on the server side. Please try again.")
                             if lobby['player2'] is None:
@@ -296,6 +297,31 @@ class Server:
                                 answer = dict(invalidSessionID=False, lobbyExists=True, lobbyFull=True, lobbyJoined=False)
                         else:
                             answer = dict(invalidSessionID=False, lobbyExists=False)
+                    else:
+                        answer = dict(invalidSessionID=True)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + print(traceback.format_exc()) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                    
+            elif action == "lobby_end":
+                try:
+                    sessionID = request.get("sessionID")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.clients:
+                        if not self.clients.get(str(sessionID)).get('lobbyName') is None:
+                            lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
+                            if lobbyName in self.games:
+                                del self.games[lobbyName]
+                            if lobbyName in self.lobbies:
+                                del self.lobbies[lobbyName]
+                            self.clients.get(str(sessionID))['lobbyName'] = None
+                        answer = dict(invalidSessionID=False, notInLobby=True)
                     else:
                         answer = dict(invalidSessionID=True)
                     reply["reply"] = answer
@@ -355,13 +381,45 @@ class Server:
                             if not lobby.get('gameStarted'):
                                 if not lobby.get('player2') is None and not lobby.get('player1') is None:
                                     lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
-                                    lobby['gameStared'] = True
+                                    lobby['gameStarted'] = True
                                     self.games[lobbyName] = battleshipServer.Referee(P1_name=lobby.get('player1'), P2_name=lobby.get('player2'))
                                     answer = dict(invalidSessionID=False, notInLobby=False, alreadyStarted=False, gameStarted=True)
                                 else:
                                     answer = dict(invalidSessionID=False, notInLobby=False, alreadyStarted=False, gameStarted=False)
                             else:
-                                answer = dict(invalidSessionID=False, notInLobby=False, alreadyStarted=True)
+                                answer = dict(invalidSessionID=False, notInLobby=False, alreadyStarted=True, gameStarted=True)
+                        else:
+                            answer = dict(invalidSessionID=False, notInLobby=True)
+                    else:
+                        answer = dict(invalidSessionID=True)
+                    reply["reply"] = answer
+                except Exception as e:
+                    print("\n" + print(traceback.format_exc()) +"\n")
+                    answer = dict(internalServerError=True)
+                    reply["reply"] = answer
+                    
+            elif action == "game_over":
+                try:
+                    sessionID = request.get("sessionID")
+                except Exception as e:
+                    answer = dict(badRequest=True)
+                    reply["reply"] = answer
+                    return reply
+                try:
+                    if str(sessionID) in self.clients:
+                        if not self.clients.get(str(sessionID)).get('lobbyName') is None:
+                            lobby = self.lobbies.get(self.clients.get(str(sessionID)).get('lobbyName'))
+                            if lobby.get('gameStarted'):
+                                lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
+                                gameOver = self.games.get(lobbyName).game_over
+                                if gameOver == True:
+                                    lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
+                                    winner = self.games.get(lobbyName).winner
+                                    answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, gameOver=gameOver, winner=winner)
+                                else:
+                                    answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, gameOver=False)
+                            else:
+                                answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=False)
                         else:
                             answer = dict(invalidSessionID=False, notInLobby=True)
                     else:
@@ -383,7 +441,7 @@ class Server:
                     if str(sessionID) in self.clients:
                         if not self.clients.get(str(sessionID)).get('lobbyName') is None:
                             lobby = self.lobbies.get(self.clients.get(str(sessionID)).get('lobbyName'))
-                            if not lobby.get('gameStarted'):
+                            if lobby.get('gameStarted'):
                                 lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
                                 turn = self.games.get(lobbyName).turn
                                 answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, turn=turn)
@@ -412,7 +470,7 @@ class Server:
                             lobby = self.lobbies.get(self.clients.get(str(sessionID)).get('lobbyName'))
                             username = self.clients.get(str(sessionID)).get('username')
                             print("\n\n\n" + username + "\n\n")
-                            if not lobby.get('gameStarted'):
+                            if lobby.get('gameStarted'):
                                 lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
                                 location = self.games.get(lobbyName).getIncomingStrike(username)
                                 answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, location=location)
@@ -441,7 +499,7 @@ class Server:
                             lobby = self.lobbies.get(self.clients.get(str(sessionID)).get('lobbyName'))
                             username = self.clients.get(str(sessionID)).get('username')
                             print("\n\n\n" + username + "\n\n")
-                            if not lobby.get('gameStarted'):
+                            if lobby.get('gameStarted'):
                                 lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
                                 result = self.games.get(lobbyName).getResultOfPreviousStrike(username)
                                 answer = dict(invalidSessionID=False, notInLobby=False, gameStarted=True, result=result)
@@ -471,7 +529,7 @@ class Server:
                         if not self.clients.get(str(sessionID)).get('lobbyName') is None:
                             lobby = self.lobbies.get(self.clients.get(str(sessionID)).get('lobbyName'))
                             username = self.clients.get(str(sessionID)).get('username')
-                            if not lobby.get('gameStarted'):
+                            if lobby.get('gameStarted'):
                                 lobbyName = self.clients.get(str(sessionID)).get('lobbyName')
                                 self.games.get(lobbyName).setResultOfStrike(username, result)
                                 self.games.get(lobbyName).setOutgoingStrike(username, outgoing)

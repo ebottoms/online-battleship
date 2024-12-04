@@ -69,6 +69,12 @@ class Client:
                 encoding="utf-8",
                 content=dict(action=action, sessionID=values[0], lobbyName=values[1]),
             )
+        elif (action == "lobby_end"):
+            return dict(
+                type="text/json",
+                encoding="utf-8",
+                content=dict(action=action, sessionID=values[0]),
+            )
         elif (action == "get_lobby_status"):
             return dict(
                 type="text/json",
