@@ -229,19 +229,18 @@ class Game:
       
     def takeMyTurn(self, incomingStrikeLocation, resultOfPreviousStrike):
         # Deal with result of outgoing strike
-        if resultOfPreviousStrike == '!':
-            self.opponentBoard[self.outgoingStrike[0]][self.outgoingStrike[1]] = '!'
-        else:
-            self.opponentBoard[self.outgoingStrike[0]][self.outgoingStrike[1]] = 'x'
+        if not self.outgoingStrike is None:
+            self.opponentBoard[self.outgoingStrike[0]][self.outgoingStrike[1]] = resultOfPreviousStrike
             
         # Deal with incoming strike
         enemyHitMe = False
-        if self.board[incomingStrikeLocation[0]][incomingStrikeLocation[1]] != '~':
-            enemyHitMe = True
-            self.board[incomingStrikeLocation[0]][incomingStrikeLocation[1]] = '!'
-        else:
-            self.board[incomingStrikeLocation[0]][incomingStrikeLocation[1]] = 'x'
-        
+        if not incomingStrikeLocation is None:
+            if self.board[incomingStrikeLocation[0]][incomingStrikeLocation[1]] != '~':
+                enemyHitMe = True
+                self.board[incomingStrikeLocation[0]][incomingStrikeLocation[1]] = '!'
+            else:
+                self.board[incomingStrikeLocation[0]][incomingStrikeLocation[1]] = 'x'
+                
         # Select new outgoing stike location
         clear_terminal()
         self.tempUI()
@@ -267,6 +266,10 @@ class Game:
             except:
                 self.tempUI()
                 print("Please follow the Letter-Number format.")
+                continue
+            if self.opponentBoard[row][col] != '~':
+                self.tempUI()
+                print("You have already fired upon this location. Choose another.")
                 continue
             self.outgoingStrike = (row, col)
             done = True

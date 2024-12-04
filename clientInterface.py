@@ -61,6 +61,15 @@ class UI:
             self.clientInfo['username'] = username
             self.clientInfo['sessionID'] = sessionID
             self.connectedToServer = True
+            
+    def endLobby(self):
+        host = self.serverInfo.get('host')
+        port = self.serverInfo.get('port')
+        # Stop gameplay if in-game
+        sessionID = self.clientInfo.get('sessionID')
+        servReply = self.backend.send(host, port, 'lobby_end', [sessionID])
+        lobbyExited = json.loads(servReply.get('reply')).get('notInLobby')
+        self.inGame = False
         
     # PROMPTS AND DISPLAYS
     def findServerPrompt(self):
@@ -185,19 +194,14 @@ class UI:
         servReply1 = self.backend.send(host, port, "get_lobby_status", [lobbyName])
         lobby = json.loads(servReply1.get('reply')).get('lobby')
         if not lobby['player2'] is None and not lobby['player1'] is None:
-            # LOOP
-            # Tell server to start the game
-            #
-            # Game Started? if not: loop again
+            print("STATUS: Starting match...")
+            print("PLAYERS: " + lobby['player1'] + "  VS  " + lobby['player2'])
             gameStarted = False
             while not gameStarted:
                 servReply2 = self.backend.send(host, port, "game_start", [self.clientInfo.get('sessionID')])
                 gameStarted = json.loads(servReply2.get('reply')).get('gameStarted')
                 time.sleep(2)
-            print('\nYAY\n')
             self.inGame = True
-            print("STATUS: Starting match...")
-            print("PLAYERS: " + lobby['player1'] + "  VS  " + lobby['player2'])
         else:
             print("STATUS: Waiting for Player 2 to join...")
             print("PLAYERS: " + self.clientInfo.get('username') + "  VS  " + "(Not Joined Yet)")
@@ -211,23 +215,77 @@ class UI:
         game = battleshipClient.Game()
         game.initialize()
         
-        Win = False
+        win = False
         gameOver = False
         while not gameOver:
-            pass
+            time.sleep(2)
             # Ask server if game is still going
-            # If game is finished:
-                # Who won? Who Forfeit?
+            servReply = self.backend.send(host, port, "game_over", [self.clientInfo.get('sessionID')])
+            gameOver = json.loads(servReply.get('reply')).get('gameOver')
+            if gameOver:
+                winner = json.loads(servReply.get('reply')).get('winner')
+                if winner == self.clientInfo.get('username'):
+                    win = True
+                continue
             # Ask server if it's my turn
+            servReply = self.backend.send(host, port, "turn", [self.clientInfo.get('sessionID')])
+            turn = json.loads(servReply.get('reply')).get('turn')
             # If it's my turn:
+            if turn == self.clientInfo.get('username'):
                 # Ask server for new incoming strike location
+                servReply = self.backend.send(host, port, "incoming_strike", [self.clientInfo.get('sessionID')])
+                incomingStrikeLocation = json.loads(servReply.get('reply')).get('location')
                 # Ask for result of my previous outgoing strike (?) -> (x) or (!)
-                # enemyHitMe, outgoingStrike = game.takeMyTurn(incomingStikeLocation, resultOfPreviousStrike)
+                servReply = self.backend.send(host, port, "result_outgoing_strike", [self.clientInfo.get('sessionID')])
+                resultOutgoingStrike = json.loads(servReply.get('reply')).get('result')
                 # Process result of my previous outgoing strike
-                # Process incoming strike
-                    # Update board and boat statuses
-                    # Tell server result of incoming strike
-                    # Tell server my outgoing strike's location
+                enemyHitMe, outgoingStrike = game.takeMyTurn(incomingStrikeLocation, resultOutgoingStrike)
+                # Tell server if I was hit, where I choose to strike next, and end my turn
+                result = None
+                if enemyHitMe:
+                    result = '!'
+                else:
+                    result = 'x'
+                servReply = self.backend.send(host, port, "end_turn", [self.clientInfo.get('sessionID'), result, outgoingStrike])
+                
+        if win:
+            clear_terminal()
+            print('VICTORY!')
+            time.sleep(1)
+            print('Congratulations... ', end='')
+            time.sleep(1)
+            print('you live to fight another day, ' + self.clientInfo.get('username') + '.')
+            servReply = self.backend.send(host, port, "get_client_status", [self.clientInfo.get('sessionID')])
+            lobbyName = json.loads(servReply.get('reply')).get('clientStatus').get('lobbyName')
+            servReply = self.backend.send(host, port, "get_lobby_status", [lobbyName])
+            lobby = json.loads(servReply.get('reply')).get('lobby')
+            time.sleep(1)
+            if lobby['player1'] == self.clientInfo.get('username'):
+                print('But your foe, ' + lobby['player2'] + ', sinks to a wat\'ry grave...')
+            else:
+                print('But your foe, ' + lobby['player1'] + ', sinks to a wat\'ry grave...')
+            time.sleep(6)
+            self.endLobby()
+            time.sleep(2)
+        else:
+            clear_terminal()
+            print('DEFEAT!')
+            time.sleep(1)
+            print('Poor, ' + self.clientInfo.get('username') + '... ', end='')
+            time.sleep(1)
+            print('you have found a final resting place beneath the waves.')
+            servReply = self.backend.send(host, port, "get_client_status", [self.clientInfo.get('sessionID')])
+            lobbyName = json.loads(servReply.get('reply')).get('clientStatus').get('lobbyName')
+            servReply = self.backend.send(host, port, "get_lobby_status", [lobbyName])
+            lobby = json.loads(servReply.get('reply')).get('lobby')
+            time.sleep(1)
+            if lobby['player1'] == self.clientInfo.get('username'):
+                print('Meanwhile your foe, ' + lobby['player2'] + ', lives on in glory...')
+            else:
+                print('Meanwhile your foe, ' + lobby['player1'] + ', lives on in glory...')
+            time.sleep(6)
+            self.endLobby()
+            time.sleep(2)
         
     # "ENSURE" METHODS (to prevent state errors)
     def ensureNoServerState(self):
@@ -331,7 +389,7 @@ class UI:
         
         elif self.serverFound and self.connectedToServer and self.inGame:
             try:
-                self.ensureLobbyState()
+                self.ensureInGameState()
             except:
                 # Server not found. Skip this loop and go back to find server prompt
                 self.serverFound = False
@@ -341,7 +399,7 @@ class UI:
                 self.displayGame()
             except Exception as e:
                 # Server not found. Skip this loop and go back to find server prompt
-                print("\n\n\n" + traceback.format_exc() + "\n\n\n")
+                print("\n\n~~DEBUG INFO~~\n" + traceback.format_exc() + "\n~~~~~~~~~~~~~\n\n")
                 time.sleep(10)
                 self.serverFound = False
                 serverNotFoundMessage()
