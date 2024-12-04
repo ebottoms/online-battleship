@@ -10,6 +10,7 @@ This is a simple online client-server implementation of the classic two-player <
 **Known Bugs & Limitations:**
 1. If one player quits while the other player is waiting for them to take their turn, the player waiting to take their turn will not be notified that the other player has quit. Their only option is to exit the game.
 2. You can never back out of any of the menus. For example, if you decide you want to join a server, but then change your mind, you cannot go back and create a server. You have to restart the program.
+3. No cyber-security features.
 
 **Technologies used:**
 * Python
