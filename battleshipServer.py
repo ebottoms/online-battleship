@@ -4,6 +4,7 @@ class Referee:
         self.P1_incoming_strike = None
         self.P1_outgoing_strike = None
         self.P1_result_of_previous_outgoing_strike = None
+        self.P1_ship_stats = None
         self.P1_num_hits = 0
         self.P1_name = P1_name
         
@@ -11,6 +12,7 @@ class Referee:
         self.P2_incoming_strike = None
         self.P2_outgoing_strike = None
         self.P2_result_of_previous_outgoing_strike = None
+        self.P2_ship_stats = None
         self.P2_num_hits = 0
         self.P2_name = P2_name
         
@@ -45,15 +47,17 @@ class Referee:
         else:
             return False
         
-    def setResultOfStrike(self, player_name, strike_result):
+    def setResultOfStrike(self, player_name, strike_result, ship_stats):
         if player_name == self.turn:
             if self.turn == self.P1_name:
                 self.P2_result_of_previous_outgoing_strike = strike_result
+                self.P2_ship_stats = ship_stats
                 if strike_result == '!':
                     self.P1_num_hits += 1
                     self.checkWinState()
             else:
                 self.P1_result_of_previous_outgoing_strike = strike_result
+                self.P1_ship_stats = ship_stats
                 if strike_result == '!':
                     self.P2_num_hits += 1
                     self.checkWinState()
@@ -73,11 +77,8 @@ class Referee:
     def getResultOfPreviousStrike(self, player_name):
         if player_name == self.turn:
             if self.turn == self.P1_name:
-                return self.P1_result_of_previous_outgoing_strike
+                return self.P1_result_of_previous_outgoing_strike, self.P1_ship_stats
             else:
-                return self.P2_result_of_previous_outgoing_strike
+                return self.P2_result_of_previous_outgoing_strike, self.P2_ship_stats
         else:
-            print("\n\n\nwhat dey helllll\n\n\n")
-            print("\n\n", player_name, self.turn, "\n\n")
-            print(self.P1_name, self.P2_name)
             return None

@@ -238,28 +238,29 @@ class UI:
                 # Ask for result of my previous outgoing strike (?) -> (x) or (!)
                 servReply = self.backend.send(host, port, "result_outgoing_strike", [self.clientInfo.get('sessionID')])
                 resultOutgoingStrike = json.loads(servReply.get('reply')).get('result')
+                enemyShipStats = json.loads(servReply.get('reply')).get('shipStats')
                 # Process result of my previous outgoing strike
-                enemyHitMe, outgoingStrike = game.takeMyTurn(incomingStrikeLocation, resultOutgoingStrike)
+                enemyHitMe, outgoingStrike, shipStats = game.takeMyTurn(incomingStrikeLocation, resultOutgoingStrike, enemyShipStats)
                 # Tell server if I was hit, where I choose to strike next, and end my turn
                 result = None
                 if enemyHitMe:
                     result = '!'
                 else:
                     result = 'x'
-                servReply = self.backend.send(host, port, "end_turn", [self.clientInfo.get('sessionID'), result, outgoingStrike])
+                servReply = self.backend.send(host, port, "end_turn", [self.clientInfo.get('sessionID'), result, outgoingStrike, shipStats])
                 
         if win:
             clear_terminal()
             print('VICTORY!')
             time.sleep(1)
             print('Congratulations... ', end='')
-            time.sleep(1)
+            time.sleep(2)
             print('you live to fight another day, ' + self.clientInfo.get('username') + '.')
             servReply = self.backend.send(host, port, "get_client_status", [self.clientInfo.get('sessionID')])
             lobbyName = json.loads(servReply.get('reply')).get('clientStatus').get('lobbyName')
             servReply = self.backend.send(host, port, "get_lobby_status", [lobbyName])
             lobby = json.loads(servReply.get('reply')).get('lobby')
-            time.sleep(1)
+            time.sleep(2)
             if lobby['player1'] == self.clientInfo.get('username'):
                 print('But your foe, ' + lobby['player2'] + ', sinks to a wat\'ry grave...')
             else:
@@ -272,13 +273,13 @@ class UI:
             print('DEFEAT!')
             time.sleep(1)
             print('Poor, ' + self.clientInfo.get('username') + '... ', end='')
-            time.sleep(1)
+            time.sleep(2)
             print('you have found a final resting place beneath the waves.')
             servReply = self.backend.send(host, port, "get_client_status", [self.clientInfo.get('sessionID')])
             lobbyName = json.loads(servReply.get('reply')).get('clientStatus').get('lobbyName')
             servReply = self.backend.send(host, port, "get_lobby_status", [lobbyName])
             lobby = json.loads(servReply.get('reply')).get('lobby')
-            time.sleep(1)
+            time.sleep(2)
             if lobby['player1'] == self.clientInfo.get('username'):
                 print('Meanwhile your foe, ' + lobby['player2'] + ', lives on in glory...')
             else:

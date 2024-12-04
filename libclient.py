@@ -121,7 +121,7 @@ class Client:
             return dict(
                 type="text/json",
                 encoding="utf-8",
-                content=dict(action=action, sessionID=values[0], result=values[1], outgoing=values[2]),
+                content=dict(action=action, sessionID=values[0], result=values[1], outgoing=values[2], shipStats=values[3]),
             )
         elif (action == "double") or (action == "negate"):
             return dict(

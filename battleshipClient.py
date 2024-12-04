@@ -18,22 +18,19 @@ class Game:
         self.opponentBoard = self.createBoard()
         self.ships = None
         self.outgoingStrike = None
+        self.shipStats = {
+            'carrier':True,
+            'battleship':True,
+            'cruiser':True,
+            'submarine':True,
+            'destroyer':True,
+        }
+        self.enemyShipStats = None
         
     def createBoard(self):
         board = np.zeros((10,10), dtype=object)
         board[board == 0] = '~'
         return board
-    
-    #def drawBoard(self):
-    #    boardRepresentation =                       "    1   2   3   4   5   6   7   8   9   10 \n"
-    #    boardRepresentation = boardRepresentation + "    —   —   —   —   —   —   —   —   —   —  \n"
-    #    for j in range(10):
-    #        boardRepresentation = boardRepresentation + chr(j + 65)
-    #        for i in range(10):
-    #            boardRepresentation = boardRepresentation + " | " + self.board[i][j]
-    #        boardRepresentation = boardRepresentation + " | \n"
-    #        boardRepresentation = boardRepresentation + "    —   —   —   —   —   —   —   —   —   —  \n"
-    #    print(boardRepresentation)
     
     def drawBoard(self, board):
         boardRepresentation = "  1 2 3 4 5 6 7 8 9 10 \n"
@@ -214,20 +211,70 @@ class Game:
             destroyer.append(((destroyerIndices[0][i]), (destroyerIndices[1][i])))
             
         self.ships = dict(carrier=carrier, battleship=battleship, cruiser=cruiser, submarine=submarine, destroyer=destroyer)
+        
+    def printShipStats(self, shipStats):
+        
+        if shipStats is None:
+            print('Carrier: ' + "Unknown" + "   Battleship: " + "Unknown" + "\nCruiser: " + "Unknown" + "    Submarine: " + "Unknown", "    Destroyer: " + "Unknown" + '\n')
+            return
+        
+        if shipStats.get('carrier') == True:
+            carrier = 'ONLINE   '
+        else:
+            carrier = 'DESTROYED'
+        
+        if shipStats.get('battleship') == True:
+            battleship = 'ONLINE   '
+        else:
+            battleship = 'DESTROYED'
+            
+        if shipStats.get('cruiser') == True:
+            cruiser = 'ONLINE   '
+        else:
+            cruiser = 'DESTROYED'
+        
+        if shipStats.get('submarine') == True:
+            submarine = 'ONLINE   '
+        else:
+            submarine = 'DESTROYED'
+        
+        if shipStats.get('destroyer') == True:
+            destroyer = 'ONLINE   '
+        else:
+            destroyer = 'DESTROYED'
+            
+        print('Carrier: ' + carrier + "   Battleship: " + battleship + "\nCruiser: " + cruiser + "    Submarine: " + submarine, "    Destroyer: " + destroyer + '\n')
+    
+    def updateShipStats(self, enemyShipStats):
+        self.enemyShipStats = enemyShipStats
+        if not 'C' in self.board:
+            self.shipStats['carrier'] = False
+        if not 'B' in self.board:
+            self.shipStats['battleship'] = False
+        if not 'V' in self.board:
+            self.shipStats['cruiser'] = False
+        if not 'D' in self.board:
+            self.shipStats['destroyer'] = False
+        if not 'S' in self.board:
+            self.shipStats['submarine'] = False
             
     def tempUI(self):
         clear_terminal()
         print("RADAR")
         self.drawBoard(self.opponentBoard)
+        print("ENEMY SHIPS")
+        self.printShipStats(shipStats=self.enemyShipStats)
         print("YOUR BOARD")
         self.drawBoard(self.board)
-        print('\n')
+        print("YOUR SHIPS")
+        self.printShipStats(shipStats=self.shipStats)
     
     def initialize(self):
         self.placeShips()
+        print("\nWaiting for your turn...")
         self.makeShips()
       
-    def takeMyTurn(self, incomingStrikeLocation, resultOfPreviousStrike):
+    def takeMyTurn(self, incomingStrikeLocation, resultOfPreviousStrike, enemyShipStats):
         # Deal with result of outgoing strike
         if not self.outgoingStrike is None:
             self.opponentBoard[self.outgoingStrike[0]][self.outgoingStrike[1]] = resultOfPreviousStrike
@@ -240,7 +287,10 @@ class Game:
                 self.board[incomingStrikeLocation[0]][incomingStrikeLocation[1]] = '!'
             else:
                 self.board[incomingStrikeLocation[0]][incomingStrikeLocation[1]] = 'x'
-                
+        
+        # Update Ship Stats
+        self.updateShipStats(enemyShipStats)
+              
         # Select new outgoing stike location
         clear_terminal()
         self.tempUI()
@@ -273,5 +323,6 @@ class Game:
                 continue
             self.outgoingStrike = (row, col)
             done = True
+        print("\nAwaiting enemy's response...")
         
-        return enemyHitMe, self.outgoingStrike
+        return enemyHitMe, self.outgoingStrike, self.shipStats
