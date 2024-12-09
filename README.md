@@ -3,8 +3,8 @@
 This is a simple online client-server implementation of the classic two-player <em>Battleship</em> game using Python and sockets.
 
 **How to play:**
-1. **Start the server:** Run the `server.py` script.
-2. **Connect clients:** Run the `client.py` script on a different machine or terminal. To start the server, enter `server.py '' <port-number>` into a terminal running in file directory containing the `server.py` file. Follow the instructions given in the client itself in order to connect and start a game. Currently, to register a new user, you must register through command-line argument like this: `client.py <host> <port-number> register <username> <password>`.
+1. **Start the server:** Run the `server.py` script. To start the server, enter `server.py '' <port-number>` into a terminal running in file directory containing the `server.py` file. 
+2. **Connect clients:** Run the `client.py` script on a different machine or terminal. Follow the instructions given in the client itself in order to connect and start a game. Currently, to register a new user, you must register through command-line argument like this: `client.py <host> <port-number> register <username> <password>`.
 3. **Play the game:** Players each have a 10x10 tile board on which to set up their battleships. Once their ships are set up, they must guess where the other player's ships are on their board and fire torpedos to hit them. Each player takes a turn firing a torpedo. Once one player has hit every tile on which the enemy player's ships sit, they win! No draws!
 
 **Known Bugs & Limitations:**
@@ -12,6 +12,7 @@ This is a simple online client-server implementation of the classic two-player <
 2. You can never back out of any of the menus. For example, if you decide you want to join a server, but then change your mind, you cannot go back and create a server. You have to restart the program.
 3. If someone logins into the same user account at the same time on different terminals, they can desync. Essentially, it's two different clients, but making calls as one.
 4. No cyber-security features. Anyone may be able to snoop on this program, and it transfers passwords and usernames without encryption. Do not use passwords you actually care about.
+5. Only way to exit the game is hitting CTRL+C or exiting the command prompt
 
 **Technologies used:**
 * Python
@@ -24,10 +25,10 @@ This is a simple online client-server implementation of the classic two-player <
 **Roadmap for Future Additions**
 1. Fix UI and disconnection issues and add disconnection alerts
 2. Add exit game options
-1. Add a chat functionality
-2. Add basic cybersecurity functions
-3. Add server browser
-4. Add user profile viewer
+2. Add a chat functionality
+3. Add basic cybersecurity functions
+4. Add server browser
+5. Add user profile viewer
 
 **Retrospective**
 * What went right
