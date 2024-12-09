@@ -21,3 +21,25 @@ This is a simple online client-server implementation of the classic two-player <
 * [Link to Python documentation](https://docs.python.org/3/)
 * [Link to sockets tutorial](https://nbviewer.org/url/www.cs.colostate.edu/~cs457/lab/CS457_Lab01_TCPSocketIntro.ipynb)
     
+**Roadmap for Future Additions**
+1. Fix UI and disconnection issues and add disconnection alerts
+2. Add exit game options
+1. Add a chat functionality
+2. Add basic cybersecurity functions
+3. Add server browser
+4. Add user profile viewer
+
+**Retrospective**
+* What went right
+    * Players are able to maintain profiles
+    * Players can connect to a host server and communicate with it
+    * Players can create lobbies and successfully complete a game of battleship
+* What could be improved on
+    * The basic client-server architecture, while functional, is a little convoluted and difficult to work with
+    * Some code duplication
+    * Use a graphics / UI API instead of command prompt for the game's UI
+        * Current version is clunky, cannot update the player while waiting for their input
+        * It's also plain, could benefit from color usage
+        * Code is currently more difficult to work with because it has to maintain the terminal instead of using API calls
+    * Server API could be refactored to be more clear / return values which are more meaningful
+    * Players can only exit the game right now by hitting CTRL+C, should have an exit option always
